@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#09090b">
+    <title>Defesa Civil - Gerador de Alertas</title>
+    <style>
+        /* --- DESIGN SYSTEM & VARIÁVEIS --- */
+        :root {
+            --bg-base: #09090b;
+            --bg-surface: #18181b;
+            --bg-surface-elevated: #27272a;
+            --primary: #ef4444; 
+            --primary-glow: rgba(239, 68, 68, 0.4);
+            --secondary: #f59e0b; 
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+            --border: #3f3f46;
+            --border-radius-lg: 16px;
+            --border-radius-md: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* --- RESET E BASE --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
+        }
+
+        /* --- SISTEMA DE PÁGINAS (SPA) --- */
+        .page {
+            display: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+            flex-direction: column;
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            animation: fadeSlideIn 0.4s ease forwards;
+        }
+        .page.active {
+            display: flex;
+        }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- TIPOGRAFIA E COMPONENTES --- */
+        h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+        h2 { font-size: 18px; font-weight: 700; color: var(--text-main); margin: 32px 0 16px 0; display: flex; align-items: center; gap: 8px; }
+        p { font-size: 15px; color: var(--text-muted); line-height: 1.5; }
+
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10;
+            border-bottom: 1px solid transparent;
+        }
+        .header.scrolled { border-bottom: 1px solid var(--border); }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+            margin-left: -8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .radio-card {
+            background-color: var(--bg-surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--border-radius-md);
+            padding: 16px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 85px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .radio-card input[type="radio"] { position: absolute; opacity: 0; }
+        .radio-card span { font-size: 14px; font-weight: 600; color: var(--text-muted); transition: var(--transition); z-index: 1; }
+        .radio-card small { font-size: 11px; font-weight: 400; opacity: 0.7; margin-top: 4px; display: block; }
+
+        .radio-card input:checked + span,
+        .radio-card input:checked + span small { color: var(--primary); }
+        .radio-card:has(input:checked) {
+            border-color: var(--primary);
+            background-color: rgba(239, 68, 68, 0.08);
+            transform: scale(0.98);
+        }
+
+        .input-group {
+            display: none;
+            margin-top: 12px;
+            animation: fadeSlideIn 0.3s ease;
+        }
+        .input-group.active { display: block; }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            background-color: var(--bg-surface-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 16px;
+            border-radius: var(--border-radius-md);
+            font-size: 16px;
+            outline: none;
+            transition: var(--transition);
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-surface);
+            padding: 16px;
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+
+        .switch { position: relative; display: inline-block; width: 52px; height: 30px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #3f3f46; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white; border: none; padding: 18px; border-radius: var(--border-radius-lg);
+            font-size: 18px; font-weight: 800; width: 100%; cursor: pointer;
+            transition: var(--transition); box-shadow: 0 8px 25px var(--primary-glow);
+            text-transform: uppercase; letter-spacing: 1px;
+            position: sticky; bottom: 20px; margin-top: 40px; z-index: 10;
+        }
+        .btn-primary:active { transform: scale(0.96); }
+
+        .category-badge {
+            background: rgba(255, 255, 255, 0.1); padding: 4px 10px;
+            border-radius: 20px; font-size: 12px; vertical-align: middle; margin-right: 8px;
+        }
+
+        /* --- TELA DE ALERTA (BASE) --- */
+        #page-alert {
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 999;
+            padding: 24px;
+            display: none;
+            cursor: pointer; /* Toque para dispensar */
+        }
+        #page-alert.active { display: flex; }
+
+        .dismiss-hint {
+            position: absolute;
+            bottom: 40px;
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            animation: fadeInHint 2s ease forwards;
+            animation-delay: 2s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        @keyframes fadeInHint { to { opacity: 1; } }
+
+        /* --- TEMPLATE 1: ANDROID MODAL ESCURO --- */
+        .template-classic {
+            background-color: #000;
+        }
+        .modern-android-card {
+            background-color: #202124;
+            border-radius: 26px;
+            width: 100%; max-width: 380px;
+            padding: 24px;
+            display: flex; flex-direction: column;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .mac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .mac-header-left { display: flex; align-items: center; gap: 12px; color: #e8eaed; font-weight: 500; font-size: 16px; }
+        .mac-time { color: #9aa0a6; font-size: 13px; }
+        .mac-body { color: #e8eaed; font-size: 15px; line-height: 1.4; margin-bottom: 32px; font-family: Roboto, sans-serif; opacity: 0.9; }
+        .mac-footer { display: flex; justify-content: center; }
+        .mac-btn { background: none; border: none; color: #8ab4f8; font-size: 15px; font-weight: 600; cursor: pointer; padding: 10px 16px; letter-spacing: 0.5px; }
+
+        /* --- TEMPLATE 2 & 3: ANDROID (ESCURO / CLARO) --- */
+        .template-android-dark { background-color: #000; }
+        .template-android-light { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+        
+        .android-card {
+            border-radius: 24px;
+            width: 100%; max-width: 380px;
+            padding: 24px;
+            display: flex; flex-direction: column;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .android-card.dark { background-color: #202124; color: #e8eaed; }
+        .android-card.light { background-color: #ffffff; color: #202124; }
+        
+        .android-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+        .android-title { font-size: 20px; font-weight: 500; }
+        .android-body { font-size: 16px; line-height: 1.5; margin-bottom: 32px; font-family: Roboto, sans-serif; opacity: 0.9; }
+        .android-footer { display: flex; justify-content: flex-end; }
+        .android-btn {
+            background: none; border: none; font-weight: 500; font-size: 15px;
+            text-transform: uppercase; cursor: pointer; padding: 10px 16px; border-radius: 4px;
+        }
+        .android-card.dark .android-btn { color: #8ab4f8; }
+        .android-card.light .android-btn { color: #1a73e8; }
+        .android-btn:active { background-color: rgba(138, 180, 248, 0.1); }
+
+        /* --- TEMPLATE 4: iPHONE iOS (CLARO) - ATUALIZADO COM EFEITO BLUR NO FUNDO --- */
+        .template-ios {
+            background-color: rgba(0, 0, 0, 0.35); /* Fundo escurecido translúcido */
+            backdrop-filter: blur(12px); /* Efeito blur no fundo real da tela */
+            -webkit-backdrop-filter: blur(12px); /* Suporte Apple */
+        }
+        .ios-card {
+            background: rgba(245, 245, 245, 0.85);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: 24px;
+            width: 100%; max-width: 380px;
+            padding: 16px 18px;
+            display: flex; gap: 14px;
+            text-align: left;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.4);
+            transform: translateY(-20vh); /* Fica mais ao topo do ecrã */
+        }
+        .ios-icon-wrapper { padding-top: 2px; }
+        .ios-content { flex: 1; }
+        .ios-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .ios-title { font-weight: 600; font-size: 15px; color: #000; }
+        .ios-time { font-size: 13px; color: #8e8e93; font-weight: 400; }
+        .ios-body { font-size: 15px; color: #1c1c1e; line-height: 1.35; }
+
+    </style>
+</head>
+<body>
+
+    <!-- ================= PÁGINA: HOME ================= -->
+    <div id="page-home" class="page active">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+            <div style="font-size: 72px; margin-bottom: 24px; background: rgba(239, 68, 68, 0.1); width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 0 40px var(--primary-glow);">🚨</div>
+            <h1 style="font-size: 32px; margin-bottom: 12px;">Defesa Civil</h1>
+            <p style="font-size: 16px; max-width: 280px;">Gerador profissional de notificações emergenciais de alto impacto sonoro.</p>
+        </div>
+        <button class="btn-primary" onclick="navigateTo('page-config')" style="margin-bottom: 20px;">
+            Configurar Alerta
+        </button>
+    </div>
+
+    <!-- ================= PÁGINA: CONFIGURAÇÕES ================= -->
+    <div id="page-config" class="page">
+        <div class="header" id="config-header">
+            <button class="btn-icon" onclick="navigateTo('page-home')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h1 style="margin: 0; font-size: 20px; margin-left: 8px;">Nova Notificação</h1>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-bottom: 40px; scrollbar-width: none;" onscroll="handleScroll(this, 'config-header')">
+            
+            <!-- SEÇÃO: DEFESA CIVIL -->
+            <h2><span class="category-badge">🌧️</span> Riscos Naturais</h2>
+            <div class="grid-options">
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="DEMONSTRACAO do novo sistema de alerta de emergencia no NORDESTE." data-type="pre">
+                    <span>Demonstração</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ALERTA: Risco de Chuva Extrema" data-type="pre">
+                    <span>Chuva</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="PERIGO: Risco Iminente de Queda de Muros" data-type="pre">
+                    <span>Queda de Muros</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ATENÇÃO: Tempestade Severa de Granizo" data-type="pre">
+                    <span>Granizo</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="EMERGÊNCIA: Risco Crítico de Alagamentos" data-type="pre">
+                    <span>Alagamentos</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="PERIGO MÁXIMO: Deslizamentos e Chuva Forte" data-type="pre">
+                    <span>Deslizamentos</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="custom" data-target="custom-civil">
+                    <span>✏️ Personalizar...</span>
+                </label>
+            </div>
+            <div id="custom-civil" class="input-group">
+                <input type="text" id="input-custom-civil" placeholder="Ex: Risco de vendaval na região leste...">
+            </div>
+
+            <!-- SEÇÃO: GUERRA E AMEAÇAS -->
+            <h2><span class="category-badge">☢️</span> Ameaças Críticas</h2>
+            <div class="grid-options">
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ALERTA GERAL DE GUERRA DECLARADA" data-type="pre">
+                    <span>Alerta de Guerra</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="PERIGO: Ataque de Mísseis Detectado. Busque Abrigo." data-type="pre">
+                    <span>Mísseis</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="CÓDIGO VERMELHO: Território Sob Ataque Inimigo" data-type="pre">
+                    <span>Sob Ataque</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ALERTA GLOBAL: Invasão Alienígena Confirmada" data-type="pre">
+                    <span>Invasão Alienígena</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="custom" data-target="custom-war">
+                    <span>✏️ Personalizar...</span>
+                </label>
+            </div>
+            <div id="custom-war" class="input-group">
+                <input type="text" id="input-custom-war" placeholder="Ex: Ameaça detectada no setor 4...">
+            </div>
+
+            <!-- SEÇÃO: RISCOS BIOLÓGICOS E QUÍMICOS -->
+            <h2><span class="category-badge">☣️</span> Riscos Biológicos</h2>
+            <div class="grid-options">
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="Risco a vida Nova variante Covid-27 crítica com mutação genética iminente. Não saia na rua." data-type="pre">
+                    <span>Nova Variante Covid-27</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="Alerta de vazamento radioativo com risco de vida, substância Césio 137 detectada em sua região" data-type="pre">
+                    <span>Vazamento Radioativo (Césio 137)</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="Alerta tóxico, vazamento de gás cloro e cloramina. Afaste-se deste local 5km, evite respirar." data-type="pre">
+                    <span>Vazamento Tóxico (Gás Cloro)</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="custom" data-target="custom-bio">
+                    <span>✏️ Personalizar...</span>
+                </label>
+            </div>
+            <div id="custom-bio" class="input-group">
+                <input type="text" id="input-custom-bio" placeholder="Ex: Contaminação na rede de água...">
+            </div>
+
+            <!-- SEÇÃO: VISUAL (TEMPLATES) -->
+            <h2><span class="category-badge">👁️</span> Estilo Visual</h2>
+            <div class="grid-options">
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="classic">
+                    <span>Android Modal</span>
+                    <small>Aviso Central Escuro</small>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="ios" checked>
+                    <span>iPhone iOS</span>
+                    <small>Notificação Branca Translúcida</small>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="android_dark">
+                    <span>Android Escuro</span>
+                    <small>Pop-up Sistema Preto</small>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="android_light">
+                    <span>Android Claro</span>
+                    <small>Pop-up Sistema Branco</small>
+                </label>
+            </div>
+
+            <!-- SEÇÃO: ÁUDIO -->
+            <h2><span class="category-badge">🔊</span> Padrão Sonoro</h2>
+            <div class="grid-options">
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="sound_type" value="eas" checked>
+                    <span style="font-size: 16px;">Sino Forte (EAS)</span>
+                    <small>Frequência Estrondosa Padrão (Volume Máximo)</small>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="sound_type" value="sinister">
+                    <span style="font-size: 16px;">Alerta Sinistro</span>
+                    <small>Sirene Crescente de Ataque Aéreo (Grave e Perturbador)</small>
+                </label>
+            </div>
+
+            <!-- SEÇÃO: COMPORTAMENTO -->
+            <h2><span class="category-badge">⚙️</span> Comportamento</h2>
+            <div class="setting-row">
+                <div>
+                    <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">Modo em Loop</div>
+                    <div style="font-size: 13px; color: var(--text-muted);">Repetir alarme continuamente</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-loop" onchange="handleLoopToggle()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="loop-config" class="input-group">
+                <input type="number" id="loop-interval" placeholder="Intervalo entre toques (segundos)" value="3" min="1">
+            </div>
+
+            <button class="btn-primary" onclick="triggerAlert()">
+                DISPARAR ALERTA
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= PÁGINA: ALERTA ATIVO ================= -->
+    <div id="page-alert" class="page" onclick="stopAlert()">
+        
+        <!-- MODO 1: ANDROID MODERNO (Substituiu a tela vermelha) -->
+        <div id="tpl-classic" class="modern-android-card" style="display: none;">
+            <div class="mac-header">
+                <div class="mac-header-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.866 3.5a1 1 0 00-1.732 0l-9.526 16.5A1 1 0 002.474 21h19.052a1 1 0 00.866-1.5l-9.526-16.5z" fill="#FCD53F" stroke="#FCD53F" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M12 9v5m0 4h.01" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                    <span>Alerta extremo</span>
+                </div>
+                <div class="mac-time">há 2m</div>
+            </div>
+            <div class="mac-body" id="msg-classic">Defesa Civil:MENSAGEM.</div>
+            <div class="mac-footer">
+                <button class="mac-btn">OK</button>
+            </div>
+        </div>
+
+        <!-- MODO 2 & 3: ANDROID (ESCURO / CLARO) -->
+        <div id="tpl-android" class="android-card dark" style="display: none;">
+            <div class="android-header">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="#ea4335" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+                <span class="android-title">Alerta extremo</span>
+            </div>
+            <div class="android-body" id="msg-android">Defesa Civil:MENSAGEM.</div>
+            <div class="android-footer">
+                <button class="android-btn">OK</button>
+            </div>
+        </div>
+
+        <!-- MODO 4: iPHONE iOS (CLARO) -->
+        <div id="tpl-ios" class="ios-card" style="display: none;">
+            <div class="ios-icon-wrapper">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12.866 3.5a1 1 0 00-1.732 0l-9.526 16.5A1 1 0 002.474 21h19.052a1 1 0 00.866-1.5l-9.526-16.5z" fill="#FCD53F" stroke="#FCD53F" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M12 9v5m0 4h.01" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="ios-content">
+                <div class="ios-header">
+                    <span class="ios-title">Alerta extremo</span>
+                    <span class="ios-time">há 41m</span>
+                </div>
+                <div class="ios-body" id="msg-ios">Defesa Civil:MENSAGEM. Mais informacoes, consulte o site DEFESA CIVIL ALERTA #199</div>
+            </div>
+        </div>
+
+        <div class="dismiss-hint" id="dismiss-hint">Toque em qualquer lugar para dispensar</div>
+    </div>
+
+    <script>
+        // --- 1. CONTROLE DE INTERFACE (UI/UX) ---
+        
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function handleScroll(element, headerId) {
+            const header = document.getElementById(headerId);
+            if (element.scrollTop > 10) header.classList.add('scrolled');
+            else header.classList.remove('scrolled');
+        }
+
+        const msgRadios = document.querySelectorAll('input[name="alert_msg"]');
+        msgRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.getElementById('custom-civil').classList.remove('active');
+                document.getElementById('custom-war').classList.remove('active');
+                document.getElementById('custom-bio').classList.remove('active');
+                
+                if (e.target.value === 'custom') {
+                    const targetId = e.target.getAttribute('data-target');
+                    document.getElementById(targetId).classList.add('active');
+                    setTimeout(() => document.getElementById('input-' + targetId).focus(), 100);
+                }
+            });
+        });
+
+        function handleLoopToggle() {
+            const isChecked = document.getElementById('toggle-loop').checked;
+            const configDiv = document.getElementById('loop-config');
+            if (isChecked) configDiv.classList.add('active');
+            else configDiv.classList.remove('active');
+        }
+
+        // --- 2. MOTOR DE ÁUDIO (Web Audio API) ---
+        let audioCtx;
+        let oscillators = [];
+        let alertIntervalId = null;
+
+        function initAudioEngine() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function stopAllSounds() {
+            oscillators.forEach(node => { try { node.stop(); node.disconnect(); } catch (e) {} });
+            oscillators = [];
+            if (alertIntervalId) { clearInterval(alertIntervalId); alertIntervalId = null; }
+            if ("vibrate" in navigator) navigator.vibrate(0);
+        }
+
+        function playEASTone() {
+            initAudioEngine();
+            stopAllSounds();
+            const compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.value = -50; compressor.knee.value = 40; compressor.ratio.value = 12;
+            const masterGain = audioCtx.createGain(); masterGain.gain.setValueAtTime(1.5, audioCtx.currentTime);
+            masterGain.connect(compressor); compressor.connect(audioCtx.destination);
+
+            const osc1 = audioCtx.createOscillator(); osc1.type = 'square'; osc1.frequency.setValueAtTime(853, audioCtx.currentTime);
+            const osc2 = audioCtx.createOscillator(); osc2.type = 'square'; osc2.frequency.setValueAtTime(960, audioCtx.currentTime);
+            const oscSub = audioCtx.createOscillator(); oscSub.type = 'triangle'; oscSub.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+            osc1.connect(masterGain); osc2.connect(masterGain); oscSub.connect(masterGain);
+            osc1.start(); osc2.start(); oscSub.start();
+            oscillators.push(osc1, osc2, oscSub);
+
+            const duration = 2.0;
+            masterGain.gain.setValueAtTime(1.5, audioCtx.currentTime + duration - 0.1);
+            masterGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            setTimeout(() => { try { osc1.stop(); osc2.stop(); oscSub.stop(); } catch(e){} }, duration * 1000 + 100);
+            if ("vibrate" in navigator) navigator.vibrate([800, 200, 800]);
+        }
+
+        function playSinisterTone() {
+            initAudioEngine();
+            stopAllSounds();
+            const masterGain = audioCtx.createGain(); masterGain.gain.setValueAtTime(0, audioCtx.currentTime); masterGain.connect(audioCtx.destination);
+            const osc = audioCtx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            
+            const duration = 4.0;
+            osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + (duration / 2));
+            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + duration);
+
+            masterGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.5);
+            masterGain.gain.setValueAtTime(1, audioCtx.currentTime + duration - 0.5);
+            masterGain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            osc.connect(masterGain); osc.start(); oscillators.push(osc);
+            setTimeout(() => { try { osc.stop(); } catch(e){} }, duration * 1000 + 100);
+            if ("vibrate" in navigator) navigator.vibrate([4000]);
+        }
+
+        // --- 3. LÓGICA PRINCIPAL ---
+
+        function triggerAlert() {
+            // Coletar Mensagem
+            const selectedMsgRadio = document.querySelector('input[name="alert_msg"]:checked');
+            if (!selectedMsgRadio) return alert("Selecione ou digite uma mensagem de alerta.");
+
+            let rawMsg = "";
+            if (selectedMsgRadio.value === 'custom') {
+                const targetId = selectedMsgRadio.getAttribute('data-target');
+                rawMsg = document.getElementById('input-' + targetId).value.trim() || "ALERTA GERAL DE EMERGÊNCIA";
+            } else {
+                rawMsg = selectedMsgRadio.value;
+            }
+
+            // Coletar Configurações
+            const visualTemplate = document.querySelector('input[name="visual_template"]:checked').value;
+            const soundType = document.querySelector('input[name="sound_type"]:checked').value;
+            const isLoop = document.getElementById('toggle-loop').checked;
+            const loopIntervalSeconds = parseInt(document.getElementById('loop-interval').value) || 3;
+
+            // Preparar UI Dinâmica
+            const pageAlert = document.getElementById('page-alert');
+            const tplClassic = document.getElementById('tpl-classic');
+            const tplAndroid = document.getElementById('tpl-android');
+            const tplIos = document.getElementById('tpl-ios');
+            
+            // Limpa classes e visualizações
+            pageAlert.className = 'page active';
+            tplClassic.style.display = 'none';
+            tplAndroid.style.display = 'none';
+            tplIos.style.display = 'none';
+
+            // Formatação do texto conforme o template COM SUFIXO #199 INCLUÍDO
+            const formatedOSMsg = `Defesa Civil:${rawMsg}. Mais informacoes, consulte o site DEFESA CIVIL ALERTA #199`;
+
+            if (visualTemplate === 'classic') {
+                pageAlert.classList.add('template-classic');
+                tplClassic.style.display = 'flex';
+                document.getElementById('msg-classic').innerText = formatedOSMsg;
+            } 
+            else if (visualTemplate === 'android_dark') {
+                pageAlert.classList.add('template-android-dark');
+                tplAndroid.className = 'android-card dark';
+                tplAndroid.style.display = 'flex';
+                document.getElementById('msg-android').innerText = formatedOSMsg;
+            }
+            else if (visualTemplate === 'android_light') {
+                pageAlert.classList.add('template-android-light');
+                tplAndroid.className = 'android-card light';
+                tplAndroid.style.display = 'flex';
+                document.getElementById('msg-android').innerText = formatedOSMsg;
+            }
+            else if (visualTemplate === 'ios') {
+                pageAlert.classList.add('template-ios');
+                tplIos.style.display = 'flex';
+                document.getElementById('msg-ios').innerText = formatedOSMsg;
+            }
+
+            // Animação da dica para dispensar reiniciada
+            const hint = document.getElementById('dismiss-hint');
+            hint.style.animation = 'none';
+            hint.offsetHeight; // trigger reflow
+            hint.style.animation = 'fadeInHint 2s ease forwards 2s';
+
+            // Tocar o som
+            const fireSound = () => soundType === 'eas' ? playEASTone() : playSinisterTone();
+            fireSound();
+
+            if (isLoop) {
+                const soundDuration = soundType === 'eas' ? 2 : 4; 
+                alertIntervalId = setInterval(fireSound, (soundDuration + loopIntervalSeconds) * 1000);
+            }
+        }
+
+        function stopAlert() {
+            stopAllSounds();
+            navigateTo('page-config');
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#09090b">
+    <title>Defesa Civil - Gerador de Alertas</title>
+    <style>
+        /* --- DESIGN SYSTEM & VARIÁVEIS --- */
+        :root {
+            --bg-base: #09090b;
+            --bg-surface: #18181b;
+            --bg-surface-elevated: #27272a;
+            --primary: #ef4444; 
+            --primary-glow: rgba(239, 68, 68, 0.4);
+            --secondary: #f59e0b; 
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+            --border: #3f3f46;
+            --border-radius-lg: 16px;
+            --border-radius-md: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* --- RESET E BASE --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
+        }
+
+        /* --- SISTEMA DE PÁGINAS (SPA) --- */
+        .page {
+            display: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+            flex-direction: column;
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            animation: fadeSlideIn 0.4s ease forwards;
+        }
+        .page.active {
+            display: flex;
+        }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- TIPOGRAFIA E COMPONENTES --- */
+        h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+        h2 { font-size: 18px; font-weight: 700; color: var(--text-main); margin: 32px 0 16px 0; display: flex; align-items: center; gap: 8px; }
+        p { font-size: 15px; color: var(--text-muted); line-height: 1.5; }
+
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10;
+            border-bottom: 1px solid transparent;
+        }
+        .header.scrolled { border-bottom: 1px solid var(--border); }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+            margin-left: -8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .radio-card {
+            background-color: var(--bg-surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--border-radius-md);
+            padding: 16px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 85px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .radio-card input[type="radio"] { position: absolute; opacity: 0; }
+        .radio-card span { font-size: 14px; font-weight: 600; color: var(--text-muted); transition: var(--transition); z-index: 1; }
+        .radio-card small { font-size: 11px; font-weight: 400; opacity: 0.7; margin-top: 4px; display: block; }
+
+        .radio-card input:checked + span,
+        .radio-card input:checked + span small { color: var(--primary); }
+        .radio-card:has(input:checked) {
+            border-color: var(--primary);
+            background-color: rgba(239, 68, 68, 0.08);
+            transform: scale(0.98);
+        }
+
+        .input-group {
+            display: none;
+            margin-top: 12px;
+            animation: fadeSlideIn 0.3s ease;
+        }
+        .input-group.active { display: block; }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            background-color: var(--bg-surface-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 16px;
+            border-radius: var(--border-radius-md);
+            font-size: 16px;
+            outline: none;
+            transition: var(--transition);
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-surface);
+            padding: 16px;
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+
+        .switch { position: relative; display: inline-block; width: 52px; height: 30px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #3f3f46; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white; border: none; padding: 18px; border-radius: var(--border-radius-lg);
+            font-size: 18px; font-weight: 800; width: 100%; cursor: pointer;
+            transition: var(--transition); box-shadow: 0 8px 25px var(--primary-glow);
+            text-transform: uppercase; letter-spacing: 1px;
+            position: sticky; bottom: 20px; margin-top: 40px; z-index: 10;
+        }
+        .btn-primary:active { transform: scale(0.96); }
+
+        .category-badge {
+            background: rgba(255, 255, 255, 0.1); padding: 4px 10px;
+            border-radius: 20px; font-size: 12px; vertical-align: middle; margin-right: 8px;
+        }
+
+        /* --- TELA DE ALERTA (BASE) --- */
+        #page-alert {
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 999;
+            padding: 24px;
+            display: none;
+            cursor: pointer; /* Toque para dispensar */
+        }
+        #page-alert.active { display: flex; }
+
+        .dismiss-hint {
+            position: absolute;
+            bottom: 40px;
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            animation: fadeInHint 2s ease forwards;
+            animation-delay: 2s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        @keyframes fadeInHint { to { opacity: 1; } }
+
+        /* --- TEMPLATE 1: ANDROID MODAL ESCURO --- */
+        .template-classic {
+            background-color: #000;
+        }
+        .modern-android-card {
+            background-color: #202124;
+            border-radius: 26px;
+            width: 100%; max-width: 380px;
+            padding: 24px;
+            display: flex; flex-direction: column;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .mac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .mac-header-left { display: flex; align-items: center; gap: 12px; color: #e8eaed; font-weight: 500; font-size: 16px; }
+        .mac-time { color: #9aa0a6; font-size: 13px; }
+        .mac-body { color: #e8eaed; font-size: 15px; line-height: 1.4; margin-bottom: 32px; font-family: Roboto, sans-serif; opacity: 0.9; }
+        .mac-footer { display: flex; justify-content: center; }
+        .mac-btn { background: none; border: none; color: #8ab4f8; font-size: 15px; font-weight: 600; cursor: pointer; padding: 10px 16px; letter-spacing: 0.5px; }
+
+        /* --- TEMPLATE 2 & 3: ANDROID (ESCURO / CLARO) --- */
+        .template-android-dark { background-color: #000; }
+        .template-android-light { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+        
+        .android-card {
+            border-radius: 24px;
+            width: 100%; max-width: 380px;
+            padding: 24px;
+            display: flex; flex-direction: column;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .android-card.dark { background-color: #202124; color: #e8eaed; }
+        .android-card.light { background-color: #ffffff; color: #202124; }
+        
+        .android-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+        .android-title { font-size: 20px; font-weight: 500; }
+        .android-body { font-size: 16px; line-height: 1.5; margin-bottom: 32px; font-family: Roboto, sans-serif; opacity: 0.9; }
+        .android-footer { display: flex; justify-content: flex-end; }
+        .android-btn {
+            background: none; border: none; font-weight: 500; font-size: 15px;
+            text-transform: uppercase; cursor: pointer; padding: 10px 16px; border-radius: 4px;
+        }
+        .android-card.dark .android-btn { color: #8ab4f8; }
+        .android-card.light .android-btn { color: #1a73e8; }
+        .android-btn:active { background-color: rgba(138, 180, 248, 0.1); }
+
+        /* --- TEMPLATE 4: iPHONE iOS (CLARO) - ATUALIZADO COM EFEITO BLUR NO FUNDO --- */
+        .template-ios {
+            background-color: rgba(0, 0, 0, 0.35); /* Fundo escurecido translúcido */
+            backdrop-filter: blur(12px); /* Efeito blur no fundo real da tela */
+            -webkit-backdrop-filter: blur(12px); /* Suporte Apple */
+        }
+        .ios-card {
+            background: rgba(245, 245, 245, 0.85);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: 24px;
+            width: 100%; max-width: 380px;
+            padding: 16px 18px;
+            display: flex; gap: 14px;
+            text-align: left;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.4);
+            transform: translateY(-20vh); /* Fica mais ao topo do ecrã */
+        }
+        .ios-icon-wrapper { padding-top: 2px; }
+        .ios-content { flex: 1; }
+        .ios-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .ios-title { font-weight: 600; font-size: 15px; color: #000; }
+        .ios-time { font-size: 13px; color: #8e8e93; font-weight: 400; }
+        .ios-body { font-size: 15px; color: #1c1c1e; line-height: 1.35; }
+
+    </style>
+</head>
+<body>
+
+    <!-- ================= PÁGINA: HOME ================= -->
+    <div id="page-home" class="page active">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+            <div style="font-size: 72px; margin-bottom: 24px; background: rgba(239, 68, 68, 0.1); width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 0 40px var(--primary-glow);">🚨</div>
+            <h1 style="font-size: 32px; margin-bottom: 12px;">Defesa Civil</h1>
+            <p style="font-size: 16px; max-width: 280px;">Gerador profissional de notificações emergenciais de alto impacto sonoro.</p>
+        </div>
+        <button class="btn-primary" onclick="navigateTo('page-config')" style="margin-bottom: 20px;">
+            Configurar Alerta
+        </button>
+    </div>
+
+    <!-- ================= PÁGINA: CONFIGURAÇÕES ================= -->
+    <div id="page-config" class="page">
+        <div class="header" id="config-header">
+            <button class="btn-icon" onclick="navigateTo('page-home')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h1 style="margin: 0; font-size: 20px; margin-left: 8px;">Nova Notificação</h1>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-bottom: 40px; scrollbar-width: none;" onscroll="handleScroll(this, 'config-header')">
+            
+            <!-- SEÇÃO: DEFESA CIVIL -->
+            <h2><span class="category-badge">🌧️</span> Riscos Naturais</h2>
+            <div class="grid-options">
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="DEMONSTRACAO do novo sistema de alerta de emergencia no NORDESTE." data-type="pre">
+                    <span>Demonstração</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ALERTA: Risco de Chuva Extrema" data-type="pre">
+                    <span>Chuva</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="PERIGO: Risco Iminente de Queda de Muros" data-type="pre">
+                    <span>Queda de Muros</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ATENÇÃO: Tempestade Severa de Granizo" data-type="pre">
+                    <span>Granizo</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="EMERGÊNCIA: Risco Crítico de Alagamentos" data-type="pre">
+                    <span>Alagamentos</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="PERIGO MÁXIMO: Deslizamentos e Chuva Forte" data-type="pre">
+                    <span>Deslizamentos</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="custom" data-target="custom-civil">
+                    <span>✏️ Personalizar...</span>
+                </label>
+            </div>
+            <div id="custom-civil" class="input-group">
+                <input type="text" id="input-custom-civil" placeholder="Ex: Risco de vendaval na região leste...">
+            </div>
+
+            <!-- SEÇÃO: GUERRA E AMEAÇAS -->
+            <h2><span class="category-badge">☢️</span> Ameaças Críticas</h2>
+            <div class="grid-options">
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ALERTA GERAL DE GUERRA DECLARADA" data-type="pre">
+                    <span>Alerta de Guerra</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="PERIGO: Ataque de Mísseis Detectado. Busque Abrigo." data-type="pre">
+                    <span>Mísseis</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="CÓDIGO VERMELHO: Território Sob Ataque Inimigo" data-type="pre">
+                    <span>Sob Ataque</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="alert_msg" value="ALERTA GLOBAL: Invasão Alienígena Confirmada" data-type="pre">
+                    <span>Invasão Alienígena</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="custom" data-target="custom-war">
+                    <span>✏️ Personalizar...</span>
+                </label>
+            </div>
+            <div id="custom-war" class="input-group">
+                <input type="text" id="input-custom-war" placeholder="Ex: Ameaça detectada no setor 4...">
+            </div>
+
+            <!-- SEÇÃO: RISCOS BIOLÓGICOS E QUÍMICOS -->
+            <h2><span class="category-badge">☣️</span> Riscos Biológicos</h2>
+            <div class="grid-options">
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="Risco a vida Nova variante Covid-27 crítica com mutação genética iminente. Não saia na rua." data-type="pre">
+                    <span>Nova Variante Covid-27</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="Alerta de vazamento radioativo com risco de vida, substância Césio 137 detectada em sua região" data-type="pre">
+                    <span>Vazamento Radioativo (Césio 137)</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="Alerta tóxico, vazamento de gás cloro e cloramina. Afaste-se deste local 5km, evite respirar." data-type="pre">
+                    <span>Vazamento Tóxico (Gás Cloro)</span>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="alert_msg" value="custom" data-target="custom-bio">
+                    <span>✏️ Personalizar...</span>
+                </label>
+            </div>
+            <div id="custom-bio" class="input-group">
+                <input type="text" id="input-custom-bio" placeholder="Ex: Contaminação na rede de água...">
+            </div>
+
+            <!-- SEÇÃO: VISUAL (TEMPLATES) -->
+            <h2><span class="category-badge">👁️</span> Estilo Visual</h2>
+            <div class="grid-options">
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="classic">
+                    <span>Android Modal</span>
+                    <small>Aviso Central Escuro</small>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="ios" checked>
+                    <span>iPhone iOS</span>
+                    <small>Notificação Branca Translúcida</small>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="android_dark">
+                    <span>Android Escuro</span>
+                    <small>Pop-up Sistema Preto</small>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="visual_template" value="android_light">
+                    <span>Android Claro</span>
+                    <small>Pop-up Sistema Branco</small>
+                </label>
+            </div>
+
+            <!-- SEÇÃO: ÁUDIO -->
+            <h2><span class="category-badge">🔊</span> Padrão Sonoro</h2>
+            <div class="grid-options">
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="sound_type" value="eas" checked>
+                    <span style="font-size: 16px;">Sino Forte (EAS)</span>
+                    <small>Frequência Estrondosa Padrão (Volume Máximo)</small>
+                </label>
+                <label class="radio-card" style="grid-column: span 2;">
+                    <input type="radio" name="sound_type" value="sinister">
+                    <span style="font-size: 16px;">Alerta Sinistro</span>
+                    <small>Sirene Crescente de Ataque Aéreo (Grave e Perturbador)</small>
+                </label>
+            </div>
+
+            <!-- SEÇÃO: COMPORTAMENTO -->
+            <h2><span class="category-badge">⚙️</span> Comportamento</h2>
+            <div class="setting-row">
+                <div>
+                    <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">Modo em Loop</div>
+                    <div style="font-size: 13px; color: var(--text-muted);">Repetir alarme continuamente</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-loop" onchange="handleLoopToggle()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="loop-config" class="input-group">
+                <input type="number" id="loop-interval" placeholder="Intervalo entre toques (segundos)" value="3" min="1">
+            </div>
+
+            <button class="btn-primary" onclick="triggerAlert()">
+                DISPARAR ALERTA
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= PÁGINA: ALERTA ATIVO ================= -->
+    <div id="page-alert" class="page" onclick="stopAlert()">
+        
+        <!-- MODO 1: ANDROID MODERNO (Substituiu a tela vermelha) -->
+        <div id="tpl-classic" class="modern-android-card" style="display: none;">
+            <div class="mac-header">
+                <div class="mac-header-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.866 3.5a1 1 0 00-1.732 0l-9.526 16.5A1 1 0 002.474 21h19.052a1 1 0 00.866-1.5l-9.526-16.5z" fill="#FCD53F" stroke="#FCD53F" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M12 9v5m0 4h.01" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                    <span>Alerta extremo</span>
+                </div>
+                <div class="mac-time">há 2m</div>
+            </div>
+            <div class="mac-body" id="msg-classic">Defesa Civil:MENSAGEM.</div>
+            <div class="mac-footer">
+                <button class="mac-btn">OK</button>
+            </div>
+        </div>
+
+        <!-- MODO 2 & 3: ANDROID (ESCURO / CLARO) -->
+        <div id="tpl-android" class="android-card dark" style="display: none;">
+            <div class="android-header">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="#ea4335" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+                <span class="android-title">Alerta extremo</span>
+            </div>
+            <div class="android-body" id="msg-android">Defesa Civil:MENSAGEM.</div>
+            <div class="android-footer">
+                <button class="android-btn">OK</button>
+            </div>
+        </div>
+
+        <!-- MODO 4: iPHONE iOS (CLARO) -->
+        <div id="tpl-ios" class="ios-card" style="display: none;">
+            <div class="ios-icon-wrapper">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12.866 3.5a1 1 0 00-1.732 0l-9.526 16.5A1 1 0 002.474 21h19.052a1 1 0 00.866-1.5l-9.526-16.5z" fill="#FCD53F" stroke="#FCD53F" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M12 9v5m0 4h.01" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="ios-content">
+                <div class="ios-header">
+                    <span class="ios-title">Alerta extremo</span>
+                    <span class="ios-time">há 41m</span>
+                </div>
+                <div class="ios-body" id="msg-ios">Defesa Civil:MENSAGEM. Mais informacoes, consulte o site DEFESA CIVIL ALERTA #199</div>
+            </div>
+        </div>
+
+        <div class="dismiss-hint" id="dismiss-hint">Toque em qualquer lugar para dispensar</div>
+    </div>
+
+    <script>
+        // --- 1. CONTROLE DE INTERFACE (UI/UX) ---
+        
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function handleScroll(element, headerId) {
+            const header = document.getElementById(headerId);
+            if (element.scrollTop > 10) header.classList.add('scrolled');
+            else header.classList.remove('scrolled');
+        }
+
+        const msgRadios = document.querySelectorAll('input[name="alert_msg"]');
+        msgRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.getElementById('custom-civil').classList.remove('active');
+                document.getElementById('custom-war').classList.remove('active');
+                document.getElementById('custom-bio').classList.remove('active');
+                
+                if (e.target.value === 'custom') {
+                    const targetId = e.target.getAttribute('data-target');
+                    document.getElementById(targetId).classList.add('active');
+                    setTimeout(() => document.getElementById('input-' + targetId).focus(), 100);
+                }
+            });
+        });
+
+        function handleLoopToggle() {
+            const isChecked = document.getElementById('toggle-loop').checked;
+            const configDiv = document.getElementById('loop-config');
+            if (isChecked) configDiv.classList.add('active');
+            else configDiv.classList.remove('active');
+        }
+
+        // --- 2. MOTOR DE ÁUDIO (Web Audio API) ---
+        let audioCtx;
+        let oscillators = [];
+        let alertIntervalId = null;
+
+        function initAudioEngine() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function stopAllSounds() {
+            oscillators.forEach(node => { try { node.stop(); node.disconnect(); } catch (e) {} });
+            oscillators = [];
+            if (alertIntervalId) { clearInterval(alertIntervalId); alertIntervalId = null; }
+            if ("vibrate" in navigator) navigator.vibrate(0);
+        }
+
+        function playEASTone() {
+            initAudioEngine();
+            stopAllSounds();
+            const compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.value = -50; compressor.knee.value = 40; compressor.ratio.value = 12;
+            const masterGain = audioCtx.createGain(); masterGain.gain.setValueAtTime(1.5, audioCtx.currentTime);
+            masterGain.connect(compressor); compressor.connect(audioCtx.destination);
+
+            const osc1 = audioCtx.createOscillator(); osc1.type = 'square'; osc1.frequency.setValueAtTime(853, audioCtx.currentTime);
+            const osc2 = audioCtx.createOscillator(); osc2.type = 'square'; osc2.frequency.setValueAtTime(960, audioCtx.currentTime);
+            const oscSub = audioCtx.createOscillator(); oscSub.type = 'triangle'; oscSub.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+            osc1.connect(masterGain); osc2.connect(masterGain); oscSub.connect(masterGain);
+            osc1.start(); osc2.start(); oscSub.start();
+            oscillators.push(osc1, osc2, oscSub);
+
+            const duration = 2.0;
+            masterGain.gain.setValueAtTime(1.5, audioCtx.currentTime + duration - 0.1);
+            masterGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            setTimeout(() => { try { osc1.stop(); osc2.stop(); oscSub.stop(); } catch(e){} }, duration * 1000 + 100);
+            if ("vibrate" in navigator) navigator.vibrate([800, 200, 800]);
+        }
+
+        function playSinisterTone() {
+            initAudioEngine();
+            stopAllSounds();
+            const masterGain = audioCtx.createGain(); masterGain.gain.setValueAtTime(0, audioCtx.currentTime); masterGain.connect(audioCtx.destination);
+            const osc = audioCtx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            
+            const duration = 4.0;
+            osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + (duration / 2));
+            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + duration);
+
+            masterGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.5);
+            masterGain.gain.setValueAtTime(1, audioCtx.currentTime + duration - 0.5);
+            masterGain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            osc.connect(masterGain); osc.start(); oscillators.push(osc);
+            setTimeout(() => { try { osc.stop(); } catch(e){} }, duration * 1000 + 100);
+            if ("vibrate" in navigator) navigator.vibrate([4000]);
+        }
+
+        // --- 3. LÓGICA PRINCIPAL ---
+
+        function triggerAlert() {
+            // Coletar Mensagem
+            const selectedMsgRadio = document.querySelector('input[name="alert_msg"]:checked');
+            if (!selectedMsgRadio) return alert("Selecione ou digite uma mensagem de alerta.");
+
+            let rawMsg = "";
+            if (selectedMsgRadio.value === 'custom') {
+                const targetId = selectedMsgRadio.getAttribute('data-target');
+                rawMsg = document.getElementById('input-' + targetId).value.trim() || "ALERTA GERAL DE EMERGÊNCIA";
+            } else {
+                rawMsg = selectedMsgRadio.value;
+            }
+
+            // Coletar Configurações
+            const visualTemplate = document.querySelector('input[name="visual_template"]:checked').value;
+            const soundType = document.querySelector('input[name="sound_type"]:checked').value;
+            const isLoop = document.getElementById('toggle-loop').checked;
+            const loopIntervalSeconds = parseInt(document.getElementById('loop-interval').value) || 3;
+
+            // Preparar UI Dinâmica
+            const pageAlert = document.getElementById('page-alert');
+            const tplClassic = document.getElementById('tpl-classic');
+            const tplAndroid = document.getElementById('tpl-android');
+            const tplIos = document.getElementById('tpl-ios');
+            
+            // Limpa classes e visualizações
+            pageAlert.className = 'page active';
+            tplClassic.style.display = 'none';
+            tplAndroid.style.display = 'none';
+            tplIos.style.display = 'none';
+
+            // Formatação do texto conforme o template COM SUFIXO #199 INCLUÍDO
+            const formatedOSMsg = `Defesa Civil:${rawMsg}. Mais informacoes, consulte o site DEFESA CIVIL ALERTA #199`;
+
+            if (visualTemplate === 'classic') {
+                pageAlert.classList.add('template-classic');
+                tplClassic.style.display = 'flex';
+                document.getElementById('msg-classic').innerText = formatedOSMsg;
+            } 
+            else if (visualTemplate === 'android_dark') {
+                pageAlert.classList.add('template-android-dark');
+                tplAndroid.className = 'android-card dark';
+                tplAndroid.style.display = 'flex';
+                document.getElementById('msg-android').innerText = formatedOSMsg;
+            }
+            else if (visualTemplate === 'android_light') {
+                pageAlert.classList.add('template-android-light');
+                tplAndroid.className = 'android-card light';
+                tplAndroid.style.display = 'flex';
+                document.getElementById('msg-android').innerText = formatedOSMsg;
+            }
+            else if (visualTemplate === 'ios') {
+                pageAlert.classList.add('template-ios');
+                tplIos.style.display = 'flex';
+                document.getElementById('msg-ios').innerText = formatedOSMsg;
+            }
+
+            // Animação da dica para dispensar reiniciada
+            const hint = document.getElementById('dismiss-hint');
+            hint.style.animation = 'none';
+            hint.offsetHeight; // trigger reflow
+            hint.style.animation = 'fadeInHint 2s ease forwards 2s';
+
+            // Tocar o som
+            const fireSound = () => soundType === 'eas' ? playEASTone() : playSinisterTone();
+            fireSound();
+
+            if (isLoop) {
+                const soundDuration = soundType === 'eas' ? 2 : 4; 
+                alertIntervalId = setInterval(fireSound, (soundDuration + loopIntervalSeconds) * 1000);
+            }
+        }
+
+        function stopAlert() {
+            stopAllSounds();
+            navigateTo('page-config');
+        }
+    </script>
+</body>
+</html>
